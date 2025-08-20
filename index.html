@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple Test Web — dev playground</title>
+  <style>
+    :root{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;--accent:#2563eb}
+    body{margin:0;background:#0f172a;color:#e6eef8;display:flex;flex-direction:column;min-height:100vh}
+    header{background:linear-gradient(90deg,#071247, #0b2546);padding:18px 22px;box-shadow:0 6px 18px rgba(2,6,23,.6)}
+    h1{margin:0;font-size:1.1rem}
+    main{flex:1;padding:20px;display:grid;grid-template-columns:1fr 360px;gap:18px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(2,6,23,.5)}
+    label{display:block;font-size:.82rem;margin-bottom:6px;color:#bcd2ff}
+    input[type=text],select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+    button{background:var(--accent);border:none;color:white;padding:8px 12px;border-radius:8px;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06)}
+    .log{height:360px;overflow:auto;background:rgba(255,255,255,0.02);padding:10px;border-radius:8px;font-family:monospace;font-size:.85rem}
+    footer{padding:12px 20px;font-size:.82rem;color:#9fb3ff;background:linear-gradient(90deg,#071247, transparent)}
+    .row{display:flex;gap:8px;align-items:center}
+    .small{font-size:.85rem;color:#9fb3ff}
+    .muted{color:#7f9edb;font-size:.8rem}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Simple Test Web — quick dev playground</h1>
+  </header>
+  <main>
+    <section class="card">
+      <h2 style="margin-top:0">Network & API test</h2>
+      <label for="url">URL to test</label>
+      <input id="url" type="text" value="https://httpbin.org/get" />
+      <div style="margin-top:8px" class="row">
+        <button id="ping">Fetch (GET)</button>
+        <button id="post" class="ghost">POST JSON</button>
+        <button id="clearLog" class="ghost">Clear log</button>
+      </div>
+
+      <hr style="opacity:.06;margin:12px 0"/>
+
+      <h3 style="margin:.2rem 0">Small utilities</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button id="time">Show performance.now()</button>
+        <button id="rand">Random UUID-ish</button>
+        <button id="copy" class="ghost">Copy sample text</button>
+        <button id="download" class="ghost">Download dummy file</button>
+      </div>
+
+      <hr style="opacity:.06;margin:12px 0"/>
+
+      <h3 style="margin:.2rem 0">Payload</h3>
+      <label for="payload">JSON body (for POST)</label>
+      <textarea id="payload" rows="6">{"message":"hello from test web","ts": ""}</textarea>
+
+      <hr style="opacity:.06;margin:12px 0"/>
+
+      <h3 style="margin:.2rem 0">File preview</h3>
+      <input id="file" type="file" />
+      <div id="preview" class="muted small" style="margin-top:8px">No file selected</div>
+    </section>
+
+    <aside class="card">
+      <h2 style="margin-top:0">Live log</h2>
+      <div id="log" class="log"></div>
+      <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+        <div class="small muted">Logs kept in-memory. Open console for more detail.</div>
+        <div>
+          <button id="downloadLog" class="ghost">Download log</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+  <footer>
+    Built for quick testing • Save as <code>test.html</code> and open in your browser. No frameworks, no drama.
+  </footer>
+
+  <script>
+    const $ = s => document.querySelector(s);
+    const logEl = $('#log');
+    const urlEl = $('#url');
+    const payloadEl = $('#payload');
+
+    function log(...args){
+      const ts = new Date().toISOString();
+      const line = `[${ts}] ` + args.map(a => typeof a === 'string' ? a : JSON.stringify(a,null,2)).join(' ');
+      const div = document.createElement('div'); div.textContent = line; logEl.prepend(div);
+      console.log(...args);
+    }
+
+    $('#ping').addEventListener('click', async ()=>{
+      const url = urlEl.value.trim();
+      if(!url){ return log('No URL provided') }
+      log('GET', url);
+      const t0 = performance.now();
+      try{
+        const res = await fetch(url, {cache:'no-store'});
+        const t1 = performance.now();
+        const text = await res.text();
+        log('status', res.status, 'time_ms', (t1-t0).toFixed(2));
+        log('response_preview', text.slice(0,100));
+      }catch(e){ log('fetch error', e.message || e) }
+    })
+
+    $('#post').addEventListener('click', async ()=>{
+      const url = urlEl.value.trim();
+      let body;
+      try{ body = JSON.parse(payloadEl.value); body.ts = new Date().toISOString(); }
+      catch(e){ return log('Invalid JSON payload') }
+      log('POST', url, body);
+      const t0 = performance.now();
+      try{
+        const res = await fetch(url, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const t1 = performance.now();
+        const text = await res.text();
+        log('status', res.status, 'time_ms', (t1-t0).toFixed(2));
+        log('response_preview', text.slice(0,200));
+      }catch(e){ log('post error', e.message || e) }
+    })
+
+    $('#clearLog').addEventListener('click', ()=>{ logEl.innerHTML = ''; log('log cleared') })
+
+    $('#time').addEventListener('click', ()=> log('performance.now()', performance.now().toFixed(3)) )
+    $('#rand').addEventListener('click', ()=> log('id', cryptoRandomId()))
+    $('#copy').addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText('sample text from test web'); log('copied to clipboard') }
+      catch(e){ log('clipboard failed', e.message) }
+    })
+    $('#download').addEventListener('click', ()=>{
+      const blob = new Blob(['This is a dummy file for your tests\n'], {type:'text/plain'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'dummy.txt'; a.click();
+      log('download triggered')
+    })
+
+    $('#file').addEventListener('change', (ev)=>{
+      const f = ev.target.files && ev.target.files[0];
+      if(!f){ $('#preview').textContent = 'No file selected'; return }
+      $('#preview').textContent = `${f.name} — ${f.size} bytes`;
+      if(f.type.startsWith('image/')){
+        const r = new FileReader(); r.onload = ()=>{
+          const img = new Image(); img.src = r.result; img.style.maxWidth='100%'; img.style.marginTop='8px';
+          const preview = document.createElement('div'); preview.appendChild(img);
+          logEl.prepend(preview);
+        }; r.readAsDataURL(f);
+      }
+    })
+
+    $('#downloadLog').addEventListener('click', ()=>{
+      const txt = Array.from(logEl.childNodes).map(n => n.textContent).join('\n');
+      const blob = new Blob([txt], {type:'text/plain'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'test-log.txt'; a.click();
+    })
+
+    function cryptoRandomId(){
+      const arr = new Uint8Array(12); crypto.getRandomValues(arr); return Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('')
+    }
+
+    // friendly tip: show a helpful console banner
+    console.log('%cSimple Test Web ready — open the page and poke buttons', 'color:#9fb3ff;font-weight:700');
+  </script>
+</body>
+</html>
